@@ -4,6 +4,3 @@
 
 ; No-Hit enforcement mod
 ExpeditionNoHit : 1
-
-; Debug helper (DISABLE in normal use - only enable to diagnose HP detection issues)
-; ExpeditionNoHit_Debug : 0
