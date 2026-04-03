@@ -76,7 +76,7 @@ ExpeditionNoHit : 1
    ```
 3. You should see lines like:
    ```
-   [ExpeditionNoHit] ExpeditionNoHit v1.0.0 loading...
+   [ExpeditionNoHit] ExpeditionNoHit v1.0.1 loading...
    [ExpeditionNoHit] ClientRestart fired.
    [ExpeditionNoHit] Lifecycle: battle-start hook registered (OnBattleDependenciesFullyLoaded).
    [ExpeditionNoHit] Lifecycle: battle-end hook registered (ResumeExplorationOnBattleEnd).
