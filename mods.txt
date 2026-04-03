@@ -1,0 +1,9 @@
+; UE4SS mods.txt - Clair Obscur: Expedition 33
+; Copy this file to: <GameDir>\Sandfall\Binaries\Win64\ue4ss\Mods\
+; (It should already contain other entries - add the line below)
+
+; No-Hit enforcement mod
+ExpeditionNoHit : 1
+
+; Debug helper (DISABLE in normal use - only enable to diagnose HP detection issues)
+; ExpeditionNoHit_Debug : 0

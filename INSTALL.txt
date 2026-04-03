@@ -1,0 +1,131 @@
+==============================================================================
+ExpeditionNoHit - Installation Guide
+Clair Obscur: Expedition 33
+Rules: https://www.teamhitless.com/clair-obscur/
+==============================================================================
+
+PREREQUISITE: UE4SS must be installed.
+Download UE4SS (RE-UE4SS 3.0.1+) from:
+  https://www.nexusmods.com/clairobscurexpedition33/mods/630
+
+------------------------------------------------------------------------------
+STEP 1 - Locate the game directory
+------------------------------------------------------------------------------
+Default Steam path:
+  C:\Program Files (x86)\Steam\steamapps\common\Clair Obscur Expedition 33\
+
+Default Epic Games path:
+  C:\Program Files\Epic Games\ClairObscurExpedition33\
+
+------------------------------------------------------------------------------
+STEP 2 - Locate the UE4SS Mods folder
+------------------------------------------------------------------------------
+  <GameDir>\Sandfall\Binaries\Win64\ue4ss\Mods\
+
+------------------------------------------------------------------------------
+STEP 3 - Copy the mod folder
+------------------------------------------------------------------------------
+Copy the entire "ExpeditionNoHit" folder (containing Scripts\main.lua) to:
+  <GameDir>\Sandfall\Binaries\Win64\ue4ss\Mods\ExpeditionNoHit\
+
+Final structure:
+  Mods\
+  └── ExpeditionNoHit\
+      └── Scripts\
+          ├── main.lua           <- Main mod
+          └── debug_helper.lua   <- Only needed if HP detection fails
+
+------------------------------------------------------------------------------
+STEP 4 - Enable the mod in mods.txt
+------------------------------------------------------------------------------
+Open the file:
+  <GameDir>\Sandfall\Binaries\Win64\ue4ss\Mods\mods.txt
+
+Add this line (1 = enabled, 0 = disabled):
+  ExpeditionNoHit : 1
+
+------------------------------------------------------------------------------
+STEP 5 - Verify it works
+------------------------------------------------------------------------------
+1. Launch the game
+2. Check the UE4SS log at:
+   <GameDir>\Sandfall\Binaries\Win64\ue4ss\Logs\UE4SS.log
+3. You should see lines like:
+   [ExpeditionNoHit] ExpeditionNoHit v1.0.0 loading...
+   [ExpeditionNoHit] Battle hooks registered.
+   [ExpeditionNoHit] HP polling loop started (every 100ms).
+
+------------------------------------------------------------------------------
+TROUBLESHOOTING: HP Detection Not Working
+------------------------------------------------------------------------------
+If you see "[ExpeditionNoHit][WARN] Could not read HP for any character!" in the log:
+
+1. Open ExpeditionNoHit\Scripts\main.lua
+2. Set: DEBUG_HELPER_ENABLED = true   (in debug_helper.lua)
+3. Copy debug_helper.lua to a new mod folder "ExpeditionNoHit_Debug" and enable it
+4. Start a battle, check the log for lines marked "<<< POSSIBLE HP"
+5. Find the correct HP property name
+6. Set HP_PROPERTY_CONFIRMED = "CorrectPropertyName" in main.lua
+
+------------------------------------------------------------------------------
+UNINSTALL
+------------------------------------------------------------------------------
+In mods.txt, change:
+  ExpeditionNoHit : 1
+to:
+  ExpeditionNoHit : 0
+
+Or delete the ExpeditionNoHit folder entirely.
+
+==============================================================================
+COMPLIANCE WITH https://www.teamhitless.com/clair-obscur/
+(Full report below)
+==============================================================================
+
+IMPLEMENTED:
+  [YES] HP loss detection - Any HP decrease triggers game over
+  [YES] Self-damage from QTE failures (Lune Wildfire/Hell) - Caught as HP loss
+  [YES] Trap damage - Caught as HP loss
+  [YES] Lethal fall damage - Caught as HP reaching 0
+  [YES] Non-lethal healing doesn't trigger game over (HP increase ignored)
+  [YES] Clean reset per battle (no false positives between fights)
+  [YES] Game over via ForceBattleEnd(2) (uses existing death screen)
+  [YES] Difficulty note: mod README requires Expeditioner difficulty
+
+NOT IMPLEMENTED (limitations):
+  [NO]  Stagger detection without HP loss
+        > Stagger caused by an enemy counts as a hit per rules, but detecting
+          stagger independently from HP loss requires hooking an unknown
+          stagger/interrupt function. Needs game binary analysis.
+
+  [NO]  Shield removal detection
+        > Rules say shield removal by enemy = hit. Without HP loss, this is
+          undetectable without a specific "shield removed" hook.
+          Needs further reverse engineering of the shield system.
+
+  [NO]  Distinguishing enemy damage from boss STATUS EFFECTS
+        > Rules say boss status effects do NOT count as a hit. However, if a
+          status effect deals damage over time, this mod will trigger game over.
+          Cannot distinguish source of damage without deeper hooks.
+
+  [NO]  Non-lethal static environmental hazards (should be ALLOWED)
+        > Rules say static env hazards are not hits (unless lethal).
+          The mod will trigger game over for any HP loss, including env hazards.
+          Cannot distinguish source without deeper hooks.
+
+  [NO]  Difficulty enforcement
+        > Mod cannot automatically verify the player is on Expeditioner difficulty.
+          Player must ensure this manually (rules require showing difficulty at
+          start or end of run).
+
+  [NO]  Auto death picto (should be ALLOWED)
+        > If Auto Death Picto triggers and reduces HP, it may falsely trigger
+          game over. Workaround: this rule is typically for specific picto effects
+          that aren't direct enemy hits.
+
+IMPORTANT NOTE:
+  Per teamhitless.com rules:
+  "Any mod that impacts combat, AI behavior, or game mechanics is not allowed"
+  This mod is a TRAINING TOOL ONLY and cannot be used in an official run submission.
+  It helps you practice no-hit runs offline.
+==============================================================================
