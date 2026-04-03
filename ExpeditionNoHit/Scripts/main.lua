@@ -6,7 +6,7 @@
 -- =============================================================================
 
 local MOD_NAME    = "ExpeditionNoHit"
-local MOD_VERSION = "1.0.0"
+local MOD_VERSION = "1.0.1"
 
 -- =============================================================================
 -- CONFIGURATION
@@ -284,9 +284,14 @@ log(string.format("%s v%s loading...", MOD_NAME, MOD_VERSION))
 
 RegisterHook(P_CTRL, function()
     log("ClientRestart fired.")
-    state.inBattle          = false
-    state.monitoringActive  = false
-    state.gameOverTriggered = false
+    if state.inBattle then
+        -- ClientRestart can fire mid-battle (e.g. free-aim camera transition).
+        -- Do NOT reset combat state — monitoring must stay active.
+        dbg("ClientRestart mid-battle — combat state preserved.")
+    else
+        state.monitoringActive  = false
+        state.gameOverTriggered = false
+    end
     registerLifecycleHooks()
     log(string.format("%s ready.", MOD_NAME))
 end)
