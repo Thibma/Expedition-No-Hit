@@ -6,7 +6,7 @@
 -- =============================================================================
 
 local MOD_NAME    = "ExpeditionNoHit"
-local MOD_VERSION = "1.0.1"
+local MOD_VERSION = "1.0.2"
 
 -- =============================================================================
 -- CONFIGURATION
@@ -256,9 +256,15 @@ local function registerLifecycleHooks()
     if state.hooksRegistered then return end
     state.hooksRegistered = true
 
-    -- Battle start: fires when battle is fully initialized
-    trackHook(P_BATTLE .. ":OnBattleDependenciesFullyLoaded", function() onBattleStart() end)
-    log("Lifecycle: battle-start hook registered (OnBattleDependenciesFullyLoaded).")
+    -- Battle start: hook both entry points so the mod fires regardless of asset cache state.
+    -- OnBattleDependenciesFullyLoaded only fires when assets must be streamed from disk;
+    -- if they are already cached the game skips it and calls StartBattle/StartBattleNEW directly.
+    local function onBattleStartGuarded()
+        if not state.inBattle then onBattleStart() end
+    end
+    trackHook(P_BATTLE .. ":StartBattleNEW", onBattleStartGuarded)
+    trackHook(P_BATTLE .. ":StartBattle",    onBattleStartGuarded)
+    log("Lifecycle: battle-start hooks registered (StartBattleNEW + StartBattle).")
 
     -- Battle end: fires on victory, defeat, and retreat
     local ok_end = trackHook(P_CTRL_WORLD .. ":ResumeExplorationOnBattleEnd", function()
