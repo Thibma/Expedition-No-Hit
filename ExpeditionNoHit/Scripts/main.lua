@@ -210,6 +210,12 @@ registerCombatHooks = function()
             return
         end
 
+        -- Ignore intentional touch-mechanic hits from Troubadour quest enemy (dmg is expected to be 0)
+        if sourceClass == "BP_EnemyBattle_Troubadour_Quest_C" and dmgAmt == 0 then
+            dbg(string.format("Source '%s' ignored (Troubadour quest touch mechanic, dmg=%.0f).", sourceClass, dmgAmt))
+            return
+        end
+
         -- Enemy hit a hero → game over
         triggerGameOver(string.format("%s hit by %s (dmg=%.0f)", targetClass, sourceClass, dmgAmt))
     end
