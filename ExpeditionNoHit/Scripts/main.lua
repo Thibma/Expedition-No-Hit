@@ -1,12 +1,12 @@
 -- =============================================================================
--- ExpeditionNoHit v1.0.0 - Clair Obscur: Expedition 33
+-- ExpeditionNoHit v1.0.3 - Clair Obscur: Expedition 33
 -- =============================================================================
 -- Triggers game over when any hero takes a hit from an enemy.
 -- Rules: https://www.teamhitless.com/clair-obscur/
 -- =============================================================================
 
 local MOD_NAME    = "ExpeditionNoHit"
-local MOD_VERSION = "1.0.2"
+local MOD_VERSION = "1.0.3"
 
 -- =============================================================================
 -- CONFIGURATION
