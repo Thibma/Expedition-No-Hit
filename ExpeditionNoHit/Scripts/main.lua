@@ -150,29 +150,60 @@ end
 -- GAME OVER
 -- =============================================================================
 
--- Tries every known method to surface the retry/defeat popup without playing
--- the full game over animation. Returns true if any call succeeded.
-local function tryQuickGameOver(bm)
-    -- These are the BattleManager methods most likely to open the defeat popup
-    -- directly. They are tried in order; the first one that does not raise an
-    -- error is treated as the winner. Extend this list if you discover new
-    -- candidates via the UE4SS object dump.
-    local candidates = {
-        "ShowDefeatMenu",
-        "ShowRetryMenu",
-        "ShowGameOverScreen",
-        "OnDefeat",
-        "OpenDefeatWidget",
-    }
-    for _, method in ipairs(candidates) do
-        local ok, err = pcall(function() bm[method](bm) end)
-        if ok then
-            log(string.format("Quick game over: %s() succeeded — retry popup should appear.", method))
-            return true
-        else
-            dbg(string.format("Quick game over: %s() failed: %s", method, tostring(err)))
-        end
+-- Tries to call a no-arg method on a UObject by name.
+-- "Tried calling a member function but the UObject instance is nullptr" means
+-- the method name does NOT exist on that object — not a null object error.
+local function tryMethod(obj, method, label)
+    local ok, err = pcall(function() obj[method](obj) end)
+    if ok then
+        log(string.format("Quick game over: %s.%s() succeeded — retry popup should appear.", label, method))
+        return true
     end
+    -- Only log at debug level: the "nullptr" error just means "method not found".
+    dbg(string.format("Quick game over: %s.%s() — not found.", label, method))
+    return false
+end
+
+-- Tries every known method on BattleManager and WorldController to surface
+-- the retry/defeat popup without playing the full game over animation.
+-- Returns true if any call succeeded.
+--
+-- To find the real function name: run the UE4SS object dump (Numpad 7 by
+-- default), open ObjectDump.txt, and search for
+--   "AC_jRPG_BattleManager_C" or "BP_jRPG_Controller_World_C"
+-- Look for UFunctions whose names suggest defeat/retry/game-over.
+-- Add the correct name to the first candidates list below.
+local function tryQuickGameOver(bm)
+    -- BattleManager candidates — extend once you identify the real name in the dump.
+    local bmCandidates = {
+        "ShowDefeatMenu",      "ShowRetryMenu",       "ShowGameOverScreen",
+        "OnDefeat",            "OpenDefeatWidget",    "TriggerDefeat",
+        "BP_OnDefeat",         "ShowBattleResult",    "DisplayDefeatUI",
+        "ShowBattleOverScreen","OpenGameOverPopup",   "ShowRetryPopup",
+        "BP_ShowDefeatMenu",   "ShowDefeatScreen",    "OnBattleDefeat",
+    }
+    for _, method in ipairs(bmCandidates) do
+        if tryMethod(bm, method, "BattleManager") then return true end
+    end
+
+    -- WorldController candidates — the retry popup is often owned by the
+    -- world/game controller rather than the BattleManager.
+    local wc = nil
+    pcall(function() wc = FindFirstOf("BP_jRPG_Controller_World_C") end)
+    if safeIsValid(wc) then
+        local wcCandidates = {
+            "ShowDefeatMenu",       "ShowRetryMenu",        "OnBattleDefeat",
+            "ShowBattleDefeatWidget","OpenRetryPopup",      "ShowGameOverUI",
+            "DisplayDefeatMenu",    "BP_ShowDefeatMenu",    "ShowDefeatScreen",
+            "ShowRetryScreen",      "OpenDefeatMenu",       "TriggerGameOver",
+        }
+        for _, method in ipairs(wcCandidates) do
+            if tryMethod(wc, method, "WorldController") then return true end
+        end
+    else
+        dbg("Quick game over: WorldController not found, skipping.")
+    end
+
     return false
 end
 
