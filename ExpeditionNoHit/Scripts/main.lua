@@ -197,18 +197,17 @@ local function triggerGameOver(reason)
 
     if CONFIG.QUICK_GAME_OVER then
         log("Quick game over enabled — attempting to skip animation.")
-        -- The game over screen is a HUD SubWidget that may already be in the
-        -- scene. Try calling PromptBattleRetry() directly first.
-        if not tryPromptBattleRetry() then
-            -- Widget not ready yet. End the battle, then poll every 100 ms until
-            -- the widget appears so we can call PromptBattleRetry() immediately.
-            local ok, err = pcall(function() bm:ForceBattleEnd(2) end)
-            if ok then
-                log("ForceBattleEnd(2) called. Polling for WBP_jRPG_GameOverScreen_C...")
-                pollForGameOverScreen(20) -- up to 2 s
-            else
-                warn(string.format("ForceBattleEnd(2) failed: %s", tostring(err)))
+        -- ForceBattleEnd(2) MUST run first: it transitions the BattleManager
+        -- into defeated state so the retry/quit buttons work correctly.
+        -- Immediately after, we call PromptBattleRetry() to skip the animation.
+        local ok, err = pcall(function() bm:ForceBattleEnd(2) end)
+        if ok then
+            log("ForceBattleEnd(2) called. Attempting to show retry popup immediately...")
+            if not tryPromptBattleRetry() then
+                pollForGameOverScreen(20) -- poll every 100 ms, up to 2 s
             end
+        else
+            warn(string.format("ForceBattleEnd(2) failed: %s", tostring(err)))
         end
     else
         local ok, err = pcall(function() bm:ForceBattleEnd(2) end)
