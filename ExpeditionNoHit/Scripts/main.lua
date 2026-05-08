@@ -150,61 +150,30 @@ end
 -- GAME OVER
 -- =============================================================================
 
--- Tries to call a no-arg method on a UObject by name.
--- "Tried calling a member function but the UObject instance is nullptr" means
--- the method name does NOT exist on that object — not a null object error.
-local function tryMethod(obj, method, label)
-    local ok, err = pcall(function() obj[method](obj) end)
+-- Tries to call PromptBattleRetry on WBP_jRPG_GameOverScreen_C.
+-- Returns true on success.
+local function tryPromptBattleRetry()
+    local screen = nil
+    pcall(function() screen = FindFirstOf("WBP_jRPG_GameOverScreen_C") end)
+    if not safeIsValid(screen) then return false end
+    local ok, err = pcall(function() screen:PromptBattleRetry() end)
     if ok then
-        log(string.format("Quick game over: %s.%s() succeeded — retry popup should appear.", label, method))
+        log("Quick game over: WBP_jRPG_GameOverScreen_C:PromptBattleRetry() succeeded.")
         return true
     end
-    -- Only log at debug level: the "nullptr" error just means "method not found".
-    dbg(string.format("Quick game over: %s.%s() — not found.", label, method))
+    dbg(string.format("Quick game over: PromptBattleRetry() failed: %s", tostring(err)))
     return false
 end
 
--- Tries every known method on BattleManager and WorldController to surface
--- the retry/defeat popup without playing the full game over animation.
--- Returns true if any call succeeded.
---
--- To find the real function name: run the UE4SS object dump (Numpad 7 by
--- default), open ObjectDump.txt, and search for
---   "AC_jRPG_BattleManager_C" or "BP_jRPG_Controller_World_C"
--- Look for UFunctions whose names suggest defeat/retry/game-over.
--- Add the correct name to the first candidates list below.
-local function tryQuickGameOver(bm)
-    -- BattleManager candidates — extend once you identify the real name in the dump.
-    local bmCandidates = {
-        "ShowDefeatMenu",      "ShowRetryMenu",       "ShowGameOverScreen",
-        "OnDefeat",            "OpenDefeatWidget",    "TriggerDefeat",
-        "BP_OnDefeat",         "ShowBattleResult",    "DisplayDefeatUI",
-        "ShowBattleOverScreen","OpenGameOverPopup",   "ShowRetryPopup",
-        "BP_ShowDefeatMenu",   "ShowDefeatScreen",    "OnBattleDefeat",
-    }
-    for _, method in ipairs(bmCandidates) do
-        if tryMethod(bm, method, "BattleManager") then return true end
-    end
-
-    -- WorldController candidates — the retry popup is often owned by the
-    -- world/game controller rather than the BattleManager.
-    local wc = nil
-    pcall(function() wc = FindFirstOf("BP_jRPG_Controller_World_C") end)
-    if safeIsValid(wc) then
-        local wcCandidates = {
-            "ShowDefeatMenu",       "ShowRetryMenu",        "OnBattleDefeat",
-            "ShowBattleDefeatWidget","OpenRetryPopup",      "ShowGameOverUI",
-            "DisplayDefeatMenu",    "BP_ShowDefeatMenu",    "ShowDefeatScreen",
-            "ShowRetryScreen",      "OpenDefeatMenu",       "TriggerGameOver",
-        }
-        for _, method in ipairs(wcCandidates) do
-            if tryMethod(wc, method, "WorldController") then return true end
-        end
+-- Polls for the game over screen widget every 100 ms (up to maxAttempts × 100 ms).
+-- Called after ForceBattleEnd(2) when the widget is not yet in the scene.
+local function pollForGameOverScreen(remaining)
+    if tryPromptBattleRetry() then return end
+    if remaining > 0 then
+        ExecuteWithDelay(100, function() pollForGameOverScreen(remaining - 1) end)
     else
-        dbg("Quick game over: WorldController not found, skipping.")
+        dbg("Quick game over: gave up polling for WBP_jRPG_GameOverScreen_C.")
     end
-
-    return false
 end
 
 local function triggerGameOver(reason)
@@ -228,12 +197,15 @@ local function triggerGameOver(reason)
 
     if CONFIG.QUICK_GAME_OVER then
         log("Quick game over enabled — attempting to skip animation.")
-        if not tryQuickGameOver(bm) then
-            -- No direct popup method found; fall back to the standard sequence.
-            warn("Quick game over: no direct method worked — falling back to ForceBattleEnd(2).")
+        -- The game over screen is a HUD SubWidget that may already be in the
+        -- scene. Try calling PromptBattleRetry() directly first.
+        if not tryPromptBattleRetry() then
+            -- Widget not ready yet. End the battle, then poll every 100 ms until
+            -- the widget appears so we can call PromptBattleRetry() immediately.
             local ok, err = pcall(function() bm:ForceBattleEnd(2) end)
             if ok then
-                log("ForceBattleEnd(2) called (fallback). Game over screen should appear.")
+                log("ForceBattleEnd(2) called. Polling for WBP_jRPG_GameOverScreen_C...")
+                pollForGameOverScreen(20) -- up to 2 s
             else
                 warn(string.format("ForceBattleEnd(2) failed: %s", tostring(err)))
             end
