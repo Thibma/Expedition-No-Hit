@@ -13,8 +13,23 @@ local MOD_VERSION = "1.0.3"
 -- =============================================================================
 
 local CONFIG = {
-    DEBUG = true,
+    DEBUG         = true,
+    QUICK_GAME_OVER = false,
 }
+
+-- Load user config (config.lua next to this file) and merge into CONFIG.
+-- Any key present in config.lua overrides the defaults above.
+do
+    local ok, userCfg = pcall(require, "config")
+    if ok and type(userCfg) == "table" then
+        if type(userCfg.debug)         == "boolean" then CONFIG.DEBUG          = userCfg.debug         end
+        if type(userCfg.quickGameOver) == "boolean" then CONFIG.QUICK_GAME_OVER = userCfg.quickGameOver end
+        print(string.format("[ExpeditionNoHit] config.lua loaded (quickGameOver=%s, debug=%s)\n",
+            tostring(CONFIG.QUICK_GAME_OVER), tostring(CONFIG.DEBUG)))
+    else
+        print(string.format("[ExpeditionNoHit] config.lua not found or invalid — using defaults.\n"))
+    end
+end
 
 -- =============================================================================
 -- PATHS
@@ -135,6 +150,32 @@ end
 -- GAME OVER
 -- =============================================================================
 
+-- Tries every known method to surface the retry/defeat popup without playing
+-- the full game over animation. Returns true if any call succeeded.
+local function tryQuickGameOver(bm)
+    -- These are the BattleManager methods most likely to open the defeat popup
+    -- directly. They are tried in order; the first one that does not raise an
+    -- error is treated as the winner. Extend this list if you discover new
+    -- candidates via the UE4SS object dump.
+    local candidates = {
+        "ShowDefeatMenu",
+        "ShowRetryMenu",
+        "ShowGameOverScreen",
+        "OnDefeat",
+        "OpenDefeatWidget",
+    }
+    for _, method in ipairs(candidates) do
+        local ok, err = pcall(function() bm[method](bm) end)
+        if ok then
+            log(string.format("Quick game over: %s() succeeded — retry popup should appear.", method))
+            return true
+        else
+            dbg(string.format("Quick game over: %s() failed: %s", method, tostring(err)))
+        end
+    end
+    return false
+end
+
 local function triggerGameOver(reason)
     if state.gameOverTriggered then return end
     state.gameOverTriggered = true
@@ -150,14 +191,29 @@ local function triggerGameOver(reason)
         return
     end
 
-    -- Unregister combat hooks BEFORE ForceBattleEnd to prevent callbacks firing
-    -- on a partially-destroyed BattleManager during the defeat teardown sequence.
+    -- Unregister combat hooks BEFORE ending the battle to prevent callbacks
+    -- firing on a partially-destroyed BattleManager during teardown.
     unregisterCombatHooks()
-    local ok, err = pcall(function() bm:ForceBattleEnd(2) end)
-    if ok then
-        log("ForceBattleEnd(2) called. Game over screen should appear.")
+
+    if CONFIG.QUICK_GAME_OVER then
+        log("Quick game over enabled — attempting to skip animation.")
+        if not tryQuickGameOver(bm) then
+            -- No direct popup method found; fall back to the standard sequence.
+            warn("Quick game over: no direct method worked — falling back to ForceBattleEnd(2).")
+            local ok, err = pcall(function() bm:ForceBattleEnd(2) end)
+            if ok then
+                log("ForceBattleEnd(2) called (fallback). Game over screen should appear.")
+            else
+                warn(string.format("ForceBattleEnd(2) failed: %s", tostring(err)))
+            end
+        end
     else
-        warn(string.format("ForceBattleEnd(2) failed: %s", tostring(err)))
+        local ok, err = pcall(function() bm:ForceBattleEnd(2) end)
+        if ok then
+            log("ForceBattleEnd(2) called. Game over screen should appear.")
+        else
+            warn(string.format("ForceBattleEnd(2) failed: %s", tostring(err)))
+        end
     end
 end
 
